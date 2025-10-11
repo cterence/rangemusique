@@ -1,0 +1,6 @@
+in/
+out/
+config.yaml
+.envrc
+tmp/
+.direnv/
