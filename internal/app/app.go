@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path"
@@ -203,7 +204,62 @@ func copyFile(src, dst string) error {
 }
 
 func moveFile(src, dst string) error {
-	return os.Rename(src, dst)
+	err := os.Rename(src, dst)
+	if err != nil {
+		if strings.Contains(err.Error(), "invalid cross-device link") {
+			return moveCrossDevice(src, dst)
+		}
+		return fmt.Errorf("failed to move file %s to %s: %w", src, dst, err)
+	}
+	return nil
+}
+
+func moveCrossDevice(source, destination string) error {
+	src, err := os.Open(source)
+	if err != nil {
+		return fmt.Errorf("failed to open source file %s: %w", source, err)
+	}
+	dst, err := os.Create(destination)
+	if err != nil {
+		err := src.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close source file %s: %w", source, err)
+		}
+		return fmt.Errorf("failed to create destination file %s: %w", destination, err)
+	}
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		return fmt.Errorf("failed to copy file %s to %s: %w", source, destination, err)
+	}
+	err = src.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close source file %s: %w", source, err)
+	}
+	err = dst.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close destination file %s: %w", destination, err)
+	}
+	fi, err := os.Stat(source)
+	if err != nil {
+		err = os.Remove(destination)
+		if err != nil {
+			return fmt.Errorf("failed to remove destination file %s: %w", destination, err)
+		}
+		return fmt.Errorf("failed to stat destination file %s: %w", destination, err)
+	}
+	err = os.Chmod(destination, fi.Mode())
+	if err != nil {
+		err = os.Remove(destination)
+		if err != nil {
+			return fmt.Errorf("failed to remove destination file %s: %w", destination, err)
+		}
+		return fmt.Errorf("failed to chmod destination file %s: %w", destination, err)
+	}
+	err = os.Remove(source)
+	if err != nil {
+		return fmt.Errorf("failed to remove source file %s: %w", source, err)
+	}
+	return nil
 }
 
 func getReleaseYearFromMusicBrainz(mb *gomusicbrainz.WS2Client, artist, album string) (string, error) {
