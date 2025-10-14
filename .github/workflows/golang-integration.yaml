@@ -1,0 +1,53 @@
+name: Golang Integration
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build
+        run: CGO_ENABLED=0 go build main.go
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Go fmt
+        run: go fmt ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.1
+
+      - name: staticcheck
+        uses: dominikh/staticcheck-action@v1
+        with:
+          version: "latest"

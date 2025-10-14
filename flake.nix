@@ -2,7 +2,7 @@
   description = "A Nix-flake-based Go development environment";
 
   inputs = {
-    nixpkgs.url = "nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "nixpkgs/nixos-unstable";
 
     pre-commit-hooks = {
       url = "github:cachix/git-hooks.nix";

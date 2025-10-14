@@ -3,6 +3,7 @@ module github.com/cterence/rangemusique
 go 1.25.0
 
 require (
+	github.com/h2non/filetype v1.1.3
 	github.com/michiwend/gomusicbrainz v0.0.0-20181012083520-6c07e13dd396
 	github.com/urfave/cli-altsrc/v3 v3.1.0
 	github.com/urfave/cli/v3 v3.4.1

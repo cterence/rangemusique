@@ -4,3 +4,4 @@ config.yaml
 .envrc
 tmp/
 .direnv/
+.pre-commit-config.yaml
