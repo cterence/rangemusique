@@ -43,12 +43,16 @@ func main() {
 	)
 
 	var (
-		configPath   string
-		inputDir     string
-		outputDir    string
-		discogsToken string
-		copy         bool
-		logLevel     string
+		configPath     string
+		inputDir       string
+		outputDir      string
+		discogsToken   string
+		copy           bool
+		logLevel       string
+		jellyfinURL    string
+		jellyfinAPIKey string
+		lidarrURL      string
+		lidarrAPIKey   string
 	)
 
 	cmd := &cli.Command{
@@ -81,6 +85,30 @@ func main() {
 				Destination: &outputDir,
 			},
 			&cli.StringFlag{
+				Name:        "jellyfin-url",
+				Usage:       "url of the Jellyfin server",
+				Sources:     cli.NewValueSourceChain(cli.EnvVar("JELLYFIN_URL"), yaml.YAML("jellyfin.url", altsrc.NewStringPtrSourcer(&configPath))),
+				Destination: &jellyfinURL,
+			},
+			&cli.StringFlag{
+				Name:        "jellyfin-api-key",
+				Usage:       "API key for the Jellyfin server",
+				Sources:     cli.NewValueSourceChain(cli.EnvVar("JELLYFIN_API_KEY"), yaml.YAML("jellyfin.apiKey", altsrc.NewStringPtrSourcer(&configPath))),
+				Destination: &jellyfinAPIKey,
+			},
+			&cli.StringFlag{
+				Name:        "lidarr-url",
+				Usage:       "url of the Lidarr server",
+				Sources:     cli.NewValueSourceChain(cli.EnvVar("LIDARR_URL"), yaml.YAML("lidarr.url", altsrc.NewStringPtrSourcer(&configPath))),
+				Destination: &lidarrURL,
+			},
+			&cli.StringFlag{
+				Name:        "lidarr-api-key",
+				Usage:       "API key for the Lidarr server",
+				Sources:     cli.NewValueSourceChain(cli.EnvVar("LIDARR_API_KEY"), yaml.YAML("lidarr.apiKey", altsrc.NewStringPtrSourcer(&configPath))),
+				Destination: &lidarrAPIKey,
+			},
+			&cli.StringFlag{
 				Name:        "discogs-token",
 				Usage:       "token for Discogs API",
 				Sources:     cli.NewValueSourceChain(cli.EnvVar("DISCOGS_TOKEN"), yaml.YAML("discogs.token", altsrc.NewStringPtrSourcer(&configPath))),
@@ -107,10 +135,14 @@ func main() {
 				return fmt.Errorf("failed to set logger: %w", err)
 			}
 			cfg := app.Config{
-				InputDir:     inputDir,
-				OutputDir:    outputDir,
-				DiscogsToken: discogsToken,
-				Copy:         copy,
+				InputDir:       inputDir,
+				OutputDir:      outputDir,
+				DiscogsToken:   discogsToken,
+				Copy:           copy,
+				JellyfinURL:    jellyfinURL,
+				JellyfinAPIKey: jellyfinAPIKey,
+				LidarrURL:      lidarrURL,
+				LidarrAPIKey:   lidarrAPIKey,
 			}
 			return app.Run(ctx, cfg)
 		},

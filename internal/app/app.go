@@ -15,7 +15,10 @@ import (
 
 	"github.com/h2non/filetype"
 	"github.com/michiwend/gomusicbrainz"
+	jellyfin "github.com/sj14/jellyfin-go/api"
 	"go.senan.xyz/taglib"
+	"golift.io/starr"
+	"golift.io/starr/lidarr"
 )
 
 type trackElements struct {
@@ -124,6 +127,24 @@ func Run(ctx context.Context, cfg Config) error {
 		}
 	}
 	slog.Info("processed all files", "count", len(musicFilePaths))
+
+	if len(musicFilePaths) > 0 {
+		if cfg.LidarrURL != "" && cfg.LidarrAPIKey != "" {
+			err = rescanLidarrFolders(cfg.LidarrURL, cfg.LidarrAPIKey)
+			if err != nil {
+				slog.Warn("failed to refresh Lidarr library", "error", err)
+			}
+		}
+
+		time.Sleep(5 * time.Second) // Wait for a few seconds before refreshing Jellyfin
+
+		if cfg.JellyfinURL != "" && cfg.JellyfinAPIKey != "" {
+			err = refreshJellyfinLibrary(ctx, cfg.JellyfinURL, cfg.JellyfinAPIKey)
+			if err != nil {
+				slog.Warn("failed to refresh Jellyfin library", "error", err)
+			}
+		}
+	}
 
 	return nil
 }
@@ -316,3 +337,37 @@ func getReleaseYearFromMusicBrainz(mb *gomusicbrainz.WS2Client, artist, album st
 // 		return -1
 // 	}, fileName)
 // }
+
+func refreshJellyfinLibrary(ctx context.Context, jellyfinURL, jellyfinAPIKey string) error {
+	config := &jellyfin.Configuration{
+		Servers:       jellyfin.ServerConfigurations{{URL: jellyfinURL}},
+		DefaultHeader: map[string]string{"Authorization": fmt.Sprintf(`MediaBrowser Token="%s"`, jellyfinAPIKey)},
+	}
+	jc := jellyfin.NewAPIClient(config)
+
+	// Trigger library scan
+	_, err := jc.LibraryAPI.RefreshLibrary(ctx).Execute()
+	if err != nil {
+		return fmt.Errorf("failed to refresh Jellyfin library: %w", err)
+	}
+	slog.Info("Jellyfin library refresh triggered")
+
+	return nil
+}
+
+func rescanLidarrFolders(lidarrAPIKey, lidarrURL string) error {
+	c := starr.New(lidarrURL, lidarrAPIKey, 5*time.Second)
+	l := lidarr.New(c)
+
+	command := &lidarr.CommandRequest{
+		Name: "RescanFolders",
+	}
+
+	resp, err := l.SendCommand(command)
+	if err != nil {
+		return fmt.Errorf("failed to send RescanFolders command to Lidarr: %w", err)
+	}
+	slog.Info("Lidarr folder rescan triggered", "status", resp.Status)
+
+	return nil
+}
