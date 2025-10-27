@@ -187,7 +187,11 @@ func getTrackElementsFromTags(tags map[string][]string) (trackElements, error) {
 	}
 	date, ok := tags["DATE"]
 	if ok {
-		formattedDate, err := time.Parse("2006-01-02", date[0])
+		dateFormat := "2006-01-02"
+		if len(date[0]) == 4 {
+			dateFormat = "2006"
+		}
+		formattedDate, err := time.Parse(dateFormat, date[0])
 		if err != nil {
 			return te, fmt.Errorf("failed to parse date %s: %w", date[0], err)
 		}
