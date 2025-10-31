@@ -17,6 +17,8 @@ github.com/sj14/jellyfin-go v0.4.0 h1:jT+zxIRC2tbmzP7Vj9ZqvHgjzwtsA7cJHjSS7ED3v2
 github.com/sj14/jellyfin-go v0.4.0/go.mod h1:K3ozYgrTZF4403JWijLJyNDlGm+nkNZvfU5YRC+GYYc=
 github.com/sj14/jellyfin-go v0.4.1 h1:q+ra25LU+Ids6iLzEJZ4KFM46Z5gwz1XYZiCeZtik5c=
 github.com/sj14/jellyfin-go v0.4.1/go.mod h1:K3ozYgrTZF4403JWijLJyNDlGm+nkNZvfU5YRC+GYYc=
+github.com/sj14/jellyfin-go v0.4.2 h1:PQtUQZYZ8kvXTPPhdVCypN/RqMF182cCFTWACLrB1rQ=
+github.com/sj14/jellyfin-go v0.4.2/go.mod h1:K3ozYgrTZF4403JWijLJyNDlGm+nkNZvfU5YRC+GYYc=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/tetratelabs/wazero v1.9.0 h1:IcZ56OuxrtaEz8UYNRHBrUa9bYeX9oVY93KspZZBf/I=
