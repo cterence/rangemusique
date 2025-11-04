@@ -22,7 +22,7 @@ RUN go mod download
 
 CMD ["air", "-c", ".air.toml"]
 
-FROM debian:bookworm-slim@sha256:78d2f66e0fec9e5a39fb2c72ea5e052b548df75602b5215ed01a17171529f706 AS production
+FROM debian:bookworm-slim@sha256:936abff852736f951dab72d91a1b6337cf04217b2a77a5eaadc7c0f2f1ec1758 AS production
 
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
