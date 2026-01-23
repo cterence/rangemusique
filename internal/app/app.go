@@ -6,9 +6,9 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -21,20 +21,26 @@ import (
 	"golift.io/starr/lidarr"
 )
 
-type trackElements struct {
-	artist      string
-	album       string
-	title       string
-	trackNumber string
-	year        string
+type album struct {
+	title          string
+	artist         string
+	tracks         []track
+	year           string
+	coverImagePath string
+}
+
+type track struct {
+	title  string
+	number string
+	path   string
 }
 
 const (
-	unknownArtist      = "Unknown Artist"
-	unknownAlbum       = "Unknown Album"
-	unknownTitle       = "Unknown Title"
-	unknownTrackNumber = "0"
-	unknownYear        = "0"
+	UNKNOWN_ARTIST      = "Unknown Artist"
+	UNKNOWN_ALBUM       = "Unknown Album"
+	UNKNOWN_TITLE       = "Unknown Title"
+	UNKNOWN_TRACKNUMBER = "0"
+	UNKNOWN_YEAR        = "0"
 )
 
 func Run(ctx context.Context, cfg Config) error {
@@ -43,7 +49,9 @@ func Run(ctx context.Context, cfg Config) error {
 		return fmt.Errorf("failed to initialize app: %w", err)
 	}
 
-	musicFilePaths := []string{}
+	trackFilePaths := []string{}
+	coverImagePath := []string{}
+
 	err = filepath.WalkDir(cfg.InputDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -57,78 +65,92 @@ func Run(ctx context.Context, cfg Config) error {
 			return fmt.Errorf("failed to read file %s: %w", path, err)
 		}
 
-		if !filetype.IsAudio(buf) {
-			slog.Debug("skipping non-audio file", "path", path)
-			return nil
+		if filetype.IsAudio(buf) {
+			trackFilePaths = append(trackFilePaths, path)
 		}
 
-		musicFilePaths = append(musicFilePaths, path)
+		if filetype.IsImage(buf) {
+			coverImagePath = append(coverImagePath, path)
+		}
+
 		return nil
 	})
+
 	if err != nil {
 		return fmt.Errorf("failed to read input directory files: %w", err)
 	}
 
-	if len(musicFilePaths) == 0 {
+	if len(trackFilePaths) == 0 {
 		slog.Info("no music files found in input directory, exiting")
 		return nil
 	}
 
-	for _, musicFilePath := range musicFilePaths {
-		musicFileName := path.Base(musicFilePath)
+	albums, err := buildAlbums(trackFilePaths, coverImagePath)
+	if err != nil {
+		return fmt.Errorf("failed to build albums: %w", err)
+	}
 
-		tags, err := taglib.ReadTags(musicFilePath)
-		if err != nil {
-			return fmt.Errorf("failed to read tags from file %s: %w", musicFileName, err)
-		}
-		slog.Debug("tags", "musicFileName", musicFileName, "tags", tags)
-
-		trackElements, err := getTrackElementsFromTags(tags)
-		if err != nil {
-			slog.Warn("failed to extract track elements from file, skipping", "musicFileName", musicFileName, "error", err)
-			continue
-		}
-
-		if trackElements.year == unknownYear && trackElements.artist != unknownArtist && trackElements.album != unknownAlbum {
-			releaseYear, err := getReleaseYearFromMusicBrainz(cfg.mbClient, trackElements.artist, trackElements.album)
-			if err != nil {
-				slog.Warn("failed to get release year from MusicBrainz for file", "error", err)
-			}
-			trackElements.year = releaseYear
-			slog.Debug("track elements", "musicFileName", musicFileName, "trackElements", trackElements)
-		}
-
-		outDirPath := getOutDirPath(cfg.OutputDir, trackElements.artist, trackElements.album, trackElements.year)
+	for _, a := range albums {
+		outDirPath := getOutDirPath(cfg.OutputDir, a.artist, a.title, a.year)
 		err = os.MkdirAll(outDirPath, os.ModePerm)
 		if err != nil {
 			return fmt.Errorf("failed to create output directory %s: %w", outDirPath, err)
 		}
 
-		outfileName := musicFileName
-		// Only set the outfileName if the track elements are not unknown
-		if trackElements.artist != unknownArtist && trackElements.album != unknownAlbum && trackElements.trackNumber != unknownTrackNumber && trackElements.title != unknownTitle {
-			outfileName = getOutFileName(trackElements.artist, trackElements.album, trackElements.trackNumber, trackElements.title, filepath.Ext(musicFileName))
-		}
-		slog.Debug("file name", "musicFileName", musicFileName, "name", outfileName)
+		for _, t := range a.tracks {
+			trackFileName := filepath.Base(t.path)
 
-		// Copy file to output directory
-		outputFile := filepath.Join(outDirPath, outfileName)
-		slog.Debug("copying file", "path", outputFile)
-		if cfg.Copy {
-			err = copyFile(musicFilePath, outputFile)
-			if err != nil {
-				return fmt.Errorf("failed to move file to output directory: %w", err)
+			if a.year == UNKNOWN_YEAR && a.artist != UNKNOWN_ARTIST && a.title != UNKNOWN_ALBUM {
+				releaseYear, err := getReleaseYearFromMusicBrainz(cfg.mbClient, a.artist, a.title)
+				if err != nil {
+					slog.Warn("failed to get release year from MusicBrainz for file", "error", err)
+				}
+				a.year = releaseYear
+				slog.Debug("track elements", "musicFileName", trackFileName, "trackElements", t)
 			}
-		} else {
-			err = moveFile(musicFilePath, outputFile)
-			if err != nil {
-				return fmt.Errorf("failed to copy file to output directory: %w", err)
+
+			outfileName := trackFileName
+			// Only set the outfileName if the track elements are not unknown
+			if a.artist != UNKNOWN_ARTIST && a.title != UNKNOWN_ALBUM && t.number != UNKNOWN_TRACKNUMBER && t.title != UNKNOWN_TITLE {
+				outfileName = getOutFileName(a.artist, a.title, t.number, t.title, filepath.Ext(trackFileName))
+			}
+			slog.Debug("file name", "musicFileName", trackFileName, "name", outfileName)
+
+			// Copy file to output directory
+			outputFile := filepath.Join(outDirPath, outfileName)
+			slog.Debug("copying track", "path", outputFile)
+			if cfg.Copy {
+				err = copyFile(t.path, outputFile)
+				if err != nil {
+					return fmt.Errorf("failed to move track to output directory: %w", err)
+				}
+			} else {
+				err = moveFile(t.path, outputFile)
+				if err != nil {
+					return fmt.Errorf("failed to copy track to output directory: %w", err)
+				}
+			}
+		}
+
+		if a.coverImagePath != "" {
+			outputFile := filepath.Join(outDirPath, filepath.Base(a.coverImagePath))
+			slog.Debug("copying cover image", "path", outputFile)
+			if cfg.Copy {
+				err = copyFile(a.coverImagePath, outputFile)
+				if err != nil {
+					return fmt.Errorf("failed to move cover image to output directory: %w", err)
+				}
+			} else {
+				err = moveFile(a.coverImagePath, outputFile)
+				if err != nil {
+					return fmt.Errorf("failed to copy cover image to output directory: %w", err)
+				}
 			}
 		}
 	}
-	slog.Info("processed all files", "count", len(musicFilePaths))
+	slog.Info("processed all files", "count", len(trackFilePaths))
 
-	if len(musicFilePaths) > 0 {
+	if len(trackFilePaths) > 0 {
 		if cfg.LidarrURL != "" && cfg.LidarrAPIKey != "" {
 			err = rescanLidarrFolders(cfg.LidarrURL, cfg.LidarrAPIKey)
 			if err != nil {
@@ -155,49 +177,99 @@ func sanitizeTag(tag string) string {
 	return tag
 }
 
-func getTrackElementsFromTags(tags map[string][]string) (trackElements, error) {
-	var te trackElements
+func buildAlbums(trackFilePaths, coverImagePaths []string) (map[string]album, error) {
+	albums := map[string]album{}
 
-	artists, ok := tags["ARTIST"]
-	if ok {
-		te.artist = sanitizeTag(artists[0])
-	} else {
-		te.artist = unknownArtist
+	for _, p := range trackFilePaths {
+		tags, err := taglib.ReadTags(p)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read tags from file %s: %w", p, err)
+		}
+		slog.Debug("tags", "trackFilePath", p, "tags", tags)
+
+		albumTitle, albumArtist, albumYear := "", "", ""
+
+		albumsTag, ok := tags["ALBUM"]
+		if ok {
+			albumTitle = sanitizeTag(albumsTag[0])
+		} else {
+			albumTitle = UNKNOWN_ALBUM
+		}
+
+		artists, ok := tags["ARTIST"]
+		if ok {
+			albumArtist = sanitizeTag(artists[0])
+		} else {
+			albumArtist = UNKNOWN_ARTIST
+		}
+
+		date, ok := tags["DATE"]
+		if ok {
+			dateFormat := "2006-01-02"
+			if len(date[0]) == 4 {
+				dateFormat = "2006"
+			}
+			formattedDate, err := time.Parse(dateFormat, date[0])
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse date %s: %w", date[0], err)
+			}
+			albumYear = strconv.Itoa(formattedDate.Year())
+
+		} else {
+			albumYear = UNKNOWN_YEAR
+		}
+
+		currentAlbum := album{}
+
+		if existing, ok := albums[albumTitle]; ok {
+			currentAlbum = existing
+		} else {
+			currentAlbum.title = albumTitle
+			currentAlbum.year = albumYear
+			currentAlbum.artist = albumArtist
+
+			coverImageIndex := slices.IndexFunc(coverImagePaths, func(c string) bool {
+				return filepath.Dir(c) == filepath.Dir(p)
+			})
+
+			if coverImageIndex != -1 {
+				currentAlbum.coverImagePath = coverImagePaths[coverImageIndex]
+			}
+		}
+
+		track, err := getTrackElementsFromTags(tags)
+		if err != nil {
+			return nil, err
+		}
+
+		track.path = p
+
+		currentAlbum.tracks = append(currentAlbum.tracks, track)
+
+		albums[albumTitle] = currentAlbum
 	}
-	albums, ok := tags["ALBUM"]
-	if ok {
-		te.album = sanitizeTag(albums[0])
-	} else {
-		te.album = unknownAlbum
-	}
+
+	return albums, nil
+}
+
+func getTrackElementsFromTags(tags map[string][]string) (track, error) {
+	var te track
+
 	titles, ok := tags["TITLE"]
 	if ok {
 		te.title = sanitizeTag(titles[0])
 	} else {
-		te.title = unknownTitle
+		te.title = UNKNOWN_TITLE
 	}
+
 	trackNumbers, ok := tags["TRACKNUMBER"]
 	if ok {
 		trackNumber := sanitizeTag(trackNumbers[0])
 		re := regexp.MustCompile(`\d+`)
 		trackNumber = re.FindString(trackNumber)
-		te.trackNumber = trackNumber
+		te.number = trackNumber
 	} else {
-		te.trackNumber = unknownTrackNumber
-	}
-	date, ok := tags["DATE"]
-	if ok {
-		dateFormat := "2006-01-02"
-		if len(date[0]) == 4 {
-			dateFormat = "2006"
-		}
-		formattedDate, err := time.Parse(dateFormat, date[0])
-		if err != nil {
-			return te, fmt.Errorf("failed to parse date %s: %w", date[0], err)
-		}
-		te.year = strconv.Itoa(formattedDate.Year())
-	} else {
-		te.year = unknownYear
+		te.number = UNKNOWN_TRACKNUMBER
 	}
 
 	return te, nil
@@ -205,14 +277,14 @@ func getTrackElementsFromTags(tags map[string][]string) (trackElements, error) {
 
 func getOutDirPath(outDir, artist, album, year string) string {
 	yearString := ""
-	if year != unknownYear {
+	if year != UNKNOWN_YEAR {
 		yearString = fmt.Sprintf(" (%s)", year)
 	}
 	return filepath.Join(outDir, artist, fmt.Sprintf("%s%s", album, yearString))
 }
 
-func getOutFileName(artist, album, trackNumber, title, ext string) string {
-	return fmt.Sprintf("%s - %s - %s %s%s", artist, album, trackNumber, title, ext)
+func getOutFileName(artist, albumTitle, trackNumber, title, ext string) string {
+	return fmt.Sprintf("%s - %s - %s %s%s", artist, albumTitle, trackNumber, title, ext)
 }
 
 func copyFile(src, dst string) error {
@@ -299,48 +371,6 @@ func getReleaseYearFromMusicBrainz(mb *gomusicbrainz.WS2Client, artist, album st
 	}
 	return strconv.Itoa(rgResp.ReleaseGroups[0].FirstReleaseDate.Year()), nil
 }
-
-// func getTitleFromMusicBrainz(mb *gomusicbrainz.WS2Client, fileName string) (string, error) {
-// 	queryString := sanitizeFileNameForMusicBrainzQuery(fileName)
-// 	query := fmt.Sprintf(`"%s"`, queryString)
-// 	resp, err := mb.SearchRecording(query, -1, -1)
-// 	if err != nil {
-// 		return "", fmt.Errorf("failed to search MusicBrainz: %w", err)
-// 	}
-// 	if resp.Count == 0 {
-// 		slog.Warn("no recording found", "fileName", queryString)
-// 		return "", nil
-// 	}
-
-// 	return resp.Recordings[0].Title, nil
-// }
-
-// func getArtistFromMusicBrainz(mb *gomusicbrainz.WS2Client, fileName string) (string, error) {
-// 	queryString := sanitizeFileNameForMusicBrainzQuery(fileName)
-// 	query := fmt.Sprintf(`"%s"`, queryString)
-// 	resp, err := mb.SearchArtist(query, -1, -1)
-// 	if err != nil {
-// 		return "", fmt.Errorf("failed to search MusicBrainz: %w", err)
-// 	}
-// 	if resp.Count == 0 {
-// 		slog.Warn("no artist found", "fileName", queryString)
-// 		return "", nil
-// 	}
-
-// 	return resp.Artists[0].Name, nil
-// }
-
-// func sanitizeFileNameForMusicBrainzQuery(fileName string) string {
-// 	// Remove all repeated spaces
-// 	fileName = strings.ReplaceAll(fileName, "  ", " ")
-// 	// Remove all non-alphanumeric characters
-// 	return strings.Map(func(r rune) rune {
-// 		if unicode.IsLetter(r) || unicode.IsDigit(r) || unicode.IsSpace(r) {
-// 			return r
-// 		}
-// 		return -1
-// 	}, fileName)
-// }
 
 func refreshJellyfinLibrary(ctx context.Context, jellyfinURL, jellyfinAPIKey string) error {
 	config := &jellyfin.Configuration{

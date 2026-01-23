@@ -15,8 +15,9 @@ require (
 require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/michiwend/golang-pretty v0.0.0-20141116172505-8ac61812ea3f // indirect
-	github.com/tetratelabs/wazero v1.10.1 // indirect
-	golang.org/x/net v0.37.0 // indirect
+	github.com/tetratelabs/wazero v1.11.0 // indirect
+	golang.org/x/net v0.49.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
 	gopkg.in/validator.v2 v2.0.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
