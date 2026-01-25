@@ -9,7 +9,7 @@ require (
 	github.com/urfave/cli-altsrc/v3 v3.1.0
 	github.com/urfave/cli/v3 v3.6.2
 	go.senan.xyz/taglib v0.11.1
-	golift.io/starr v1.2.1
+	golift.io/starr v1.3.0
 )
 
 require (
