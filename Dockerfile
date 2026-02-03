@@ -1,10 +1,10 @@
-FROM golang:1.25-bookworm@sha256:2f768d462dbffbb0f0b3a5171009f162945b086f326e0b2a8fd5d29c3219ff14 AS deps
+FROM golang:1.25-bookworm@sha256:fdd8e8344873d406d3aa2edf975e5f8f36a85201dd0d745bd76c446fe39ffcfd AS deps
 
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-FROM golang:1.25-bookworm@sha256:2f768d462dbffbb0f0b3a5171009f162945b086f326e0b2a8fd5d29c3219ff14 AS builder
+FROM golang:1.25-bookworm@sha256:fdd8e8344873d406d3aa2edf975e5f8f36a85201dd0d745bd76c446fe39ffcfd AS builder
 
 WORKDIR /app
 COPY --from=deps /go/pkg /go/pkg
@@ -12,7 +12,7 @@ COPY . .
 ENV CGO_ENABLED=0
 RUN go build -ldflags="-w -s" -o main .
 
-FROM golang:1.25-bookworm@sha256:2f768d462dbffbb0f0b3a5171009f162945b086f326e0b2a8fd5d29c3219ff14 AS development
+FROM golang:1.25-bookworm@sha256:fdd8e8344873d406d3aa2edf975e5f8f36a85201dd0d745bd76c446fe39ffcfd AS development
 
 WORKDIR /app
 RUN go install github.com/air-verse/air@latest
