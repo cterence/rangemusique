@@ -1,6 +1,6 @@
 module github.com/cterence/rangemusique
 
-go 1.25.0
+go 1.25.7
 
 require (
 	github.com/h2non/filetype v1.1.3
@@ -9,7 +9,7 @@ require (
 	github.com/urfave/cli-altsrc/v3 v3.1.0
 	github.com/urfave/cli/v3 v3.7.0
 	go.senan.xyz/taglib v0.11.1
-	golift.io/starr v1.3.0
+	golift.io/starr v1.3.1
 )
 
 require (
