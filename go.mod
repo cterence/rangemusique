@@ -5,7 +5,7 @@ go 1.25.7
 require (
 	github.com/h2non/filetype v1.1.3
 	github.com/michiwend/gomusicbrainz v0.0.0-20181012083520-6c07e13dd396
-	github.com/sj14/jellyfin-go v0.4.2
+	github.com/sj14/jellyfin-go v0.4.3
 	github.com/urfave/cli-altsrc/v3 v3.1.0
 	github.com/urfave/cli/v3 v3.8.0
 	go.senan.xyz/taglib v0.11.1
