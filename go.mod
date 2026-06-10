@@ -7,7 +7,7 @@ require (
 	github.com/michiwend/gomusicbrainz v0.0.0-20181012083520-6c07e13dd396
 	github.com/sj14/jellyfin-go v0.4.3
 	github.com/urfave/cli-altsrc/v3 v3.1.0
-	github.com/urfave/cli/v3 v3.9.0
+	github.com/urfave/cli/v3 v3.9.1
 	go.senan.xyz/taglib v0.12.0
 	golift.io/starr v1.3.1
 )
