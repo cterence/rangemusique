@@ -8,7 +8,7 @@ require (
 	github.com/sj14/jellyfin-go v0.4.4
 	github.com/urfave/cli-altsrc/v3 v3.1.0
 	github.com/urfave/cli/v3 v3.10.1
-	go.senan.xyz/taglib v0.12.0
+	go.senan.xyz/taglib v0.13.0
 	golift.io/starr v1.3.1
 )
 
